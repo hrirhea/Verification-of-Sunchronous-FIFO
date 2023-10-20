@@ -1,39 +1,57 @@
-module fifo(data_op,full,empty,data_in,wr_en,rd_en,clk,rst);
-  
-  input[31:0] data_in;
-  input rst,wr_en,rd_en,clk;
-  output reg [31:0] data_op,full,empty;
-  reg [7:0]ram[31:0];
-  integer wr_ptr;
-  integer rd_ptr;
-  //wire tmp_full,tmp_empty;
-  
-  always @(posedge clk)begin
-      
-    if(rst)begin
-      data_op <= 32'b0;
-      wr_ptr <= 1'b0;
-      rd_ptr <= 1'b0;
-    end  
-    
-    else if((wr_en == 1) && (~full)&&(rd_en == 0)) begin
-      ram[wr_ptr] <= data_in;
-      wr_ptr = wr_ptr+1;
-      empty <= 1'b0;
-      if(wr_ptr == rd_ptr) begin
-        full <= 1'b1;
-        empty <= 1'b0; 
-      end
-    end
-    
-    else if((rd_en == 1) && (~empty)&&(wr_en == 0))begin
-      data_op <= ram[rd_ptr];
-      rd_ptr = rd_ptr+1;
-	if(wr_ptr == rd_ptr) begin
-        full <= 1'b0;
-        empty <= 1'b1; 
-      end
-    end
-    
-  end   
+module fifo(clk,rst,wdata,rdata,wr_en,rd_en,full,empty);
+input clk,rst,wr_en,rd_en;
+output full,empty;
+  input [7:0] wdata;
+  output reg [7:0] rdata;
+
+  reg [5:0] wr_ptr;
+  reg [5:0] rd_ptr;
+
+reg [7:0]mem[31:0];
+
+integer i;
+//writing data into fifo
+always @(posedge clk,posedge rst)
+    if (rst) begin
+
+        for(i=0;i<32;i=i+1)
+            mem[i]<=8'b0;
+         //  wr_ptr<=1'b0;
+            end
+
+    else if (wr_en & ~full)
+      //mem[{wr_ptr[4],wr_ptr[3],wr_ptr[2],wr_ptr[1],wr_ptr[0]}]<=wdata;
+      mem [wr_ptr]<=wdata;
+
+
+ //reading from fifo
+always @(posedge clk,posedge rst)
+    if(rst) begin
+
+           //  rd_ptr=1'b0;
+             rdata<=8'b0;
+         end
+
+    else if (rd_en & ~empty)
+        //rdata<=mem[{rd_ptr[4],rd_ptr[3],rd_ptr[2],rd_ptr[1],rd_ptr[0]}];
+      rdata<=mem[rd_ptr];
+
+//generating write pointer    
+always @(posedge clk,posedge rst)
+        if(rst)
+            wr_ptr<=6'b0;
+        else if(wr_en & ~full)
+            wr_ptr<=wr_ptr+1;
+
+
+always @(posedge clk,posedge rst)
+        if(rst)
+            rd_ptr<=6'b0;
+        else if(rd_en & ~empty)
+            rd_ptr<=rd_ptr+1;
+
+assign empty =(rd_ptr==wr_ptr);
+
+assign full=((wr_ptr[4:0]==rd_ptr[4:0])&&(wr_ptr[5]!=rd_ptr[5]));
+
 endmodule
