@@ -1,74 +1,72 @@
-`include "transaction.sv"
-//`include "transaction.sv"
-`define DRIVER_IF fifo_intf.DRIVER.driver_cb
-//DRIVER_IF ponts to the DRIVER modport in interface
+//`include "transactor.sv"
 class driver;
   
-  int no_trans;
-  virtual fifo_intf vif_fifo;
-  mailbox gen2drv;
+  virtual fifo_if vif_ff;
   
-  function new(virtual fifo_intf vif_fifo,mailbox gen2drv);
-    this.vif_fifo = vif_fifo;
-    this.gen2drv = gen2drv;
-  endfunction  
+  mailbox gen2driv;
+  mailbox driv2sb;
+  int no_of_transactions;
   
-  task reset;
-    $display("resetting");
-    wait(vif_fifo.rst);
-    `DRIVER_IF.data_in <= 0;
-    `DRIVER_IF.wr_en <= 0;
-    `DRIVER_IF.rd_en <= 0;
-    wait(!vif_fifo.rst);
-    $display("done resetting");
-  endtask
-  
-  task drive;
-    forever begin
-      transaction trans;
-     `DRIVER_IF.wr_en <=0;
-     `DRIVER_IF.rd_en <=0;
-     gen2drv.get(trans);
-     $display("no: of transactions = ",no_trans);
-     
-     @(posedge `DRIVER_IF.clk);
-     if(trans.wr_en)begin
-      `DRIVER_IF.wr_en <= trans.wr_en;
-      `DRIVER_IF.data_in <= trans.data_in;
-       trans.full =`DRIVER_IF.full;
-       trans.empty =`DRIVER_IF.empty;
-      $display("\t write enable = %0h \t data input = %0h",trans.wr_en,trans.data_in);
-     end
-     
-     if(trans.rd_en)begin
-      `DRIVER_IF.rd_en <= trans.rd_en;
-      @(posedge `DRIVER_IF.clk);
-      `DRIVER_IF.rd_en <= 0;
-      @(posedge `DRIVER_IF.clk);
-       trans.data_op =`DRIVER_IF.data_op  ;
-       trans.full = `DRIVER_IF.full;
-       trans.empty =`DRIVER_IF.empty;
-
-      $display("\t read enable = %0h \t data output = %0h",trans.rd_en,trans.data_op);
-     end
-    no_trans++;
-    end
-  endtask
-  
-  task main;
-   
-   forever begin
-    fork 
-     begin
-      wait(vif_fifo.reset);
-     end
+  function new (virtual fifo_if vif_ff,mailbox gen2driv);
     
-     begin
-      drive();
-     end
-    join_any
-    disable fork;
-   end
-  endtask
+    this.vif_ff = vif_ff;
+    this.gen2driv = gen2driv;
+    //this.driv2sb = driv2sb;
+  endfunction
     
+  task reset();
+    $display(" entered into reset mode ");
+      vif_ff.DRIVER.driver_cb.rst<=1;
+  //    vif_ff.DRIVER.driver_cb.rd_en<=0;
+    //  vif_ff.DRIVER.driver_cb.wdata<=0;
+    repeat(4)
+    @(posedge vif_ff.DRIVER.clk)
+      
+      vif_ff.DRIVER.driver_cb.rst<=0;
+    
+    //vif_ff.rst<=1;
+    //repeat(3)@(posedge vif_ff.clk);
+    //vif_ff.rst<=0;
+    $display(" leaving from reset mode ");
+    endtask :reset
+    
+  task main(); 
+    $display(" entered into transaction mode");
+    fork :main
+     forever begin
+     transactor trans;
+       trans=new();
+      //vif_ff.DRIVER.driver_cb.wr_en<=0;
+      //vif_ff.DRIVER.driver_cb.rd_en<=0;
+      gen2driv.get(trans);
+      @(posedge vif_ff.DRIVER.clk)
+       if(trans.wr_en||trans.rd_en) begin
+      if(trans.wr_en) begin
+        vif_ff.DRIVER.driver_cb.wr_en<=trans.wr_en;
+        vif_ff.DRIVER.driver_cb.rd_en<=trans.rd_en;
+        vif_ff.DRIVER.driver_cb.wdata<=trans.wdata;
+        $display("\wr_en=%h \wdata=%h",trans.wr_en,trans.wdata);
+        @(posedge vif_ff.DRIVER.clk);
+      end
+       
+       else begin
+         vif_ff.DRIVER.driver_cb.wr_en<=trans.wr_en;
+         vif_ff.DRIVER.driver_cb.rd_en<=trans.rd_en;
+         trans.rdata =vif_ff.MONITOR.monitor.rdata;
+         $display("\rd_en=%h \rdata=%h",trans.rd_en,vif_ff.MONITOR.monitor.rdata);
+         
+      end
+       end
+       //driv2sb.put(gen2driv.get(trans));
+       //trans=new();
+       
+       no_of_transactions++;
+       $display("no.of.transactions=%d",no_of_transactions);
+     end
+    join_none :main
+    endtask
+      
 endclass
+      
+    
+    
