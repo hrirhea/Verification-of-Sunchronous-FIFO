@@ -1,42 +1,36 @@
-//`include "transaction.sv"
 class scoreboard;
- mailbox mon2scb;
- int no_trans;
- bit[7:0]ram[4];
- bit wr_ptr;
- bit rd_ptr;
+
+mailbox gen2driv;
+mailbox rcv2sb;
+//coverage cov = new();
+
+  function new(mailbox gen2driv,mailbox rcv2sb);
+  this.gen2driv= gen2driv;
+  this.rcv2sb = rcv2sb;
+endfunction:new
+
+
+task start();
+  transactor trans_rcv,trans_exp;
  
- function new(mailbox mon2scb);
-   this.mon2scb = mon2scb;
-   foreach(ram[i])begin
-    ram[i] = 8'hff;
-   end
- endfunction 
- 
-  task main;
-   forever begin   
-    transaction trans;
-    #50
-    mon2scb.get(trans);
-    if(trans.wr_en)begin
-      ram[wr_ptr] = trans.data_in;
-      wr_ptr++;
-    end  
-    if(trans.rd_en)begin
-      if(trans.data_op == ram[rd_ptr])begin
-        rd_ptr++;
-        $display("yup");
-      end
-      else begin
-        $display("nop");
-      end
-    end
-    if(trans.full)begin
-      $display("fifo is full");
-    end
-    if(trans.empty)begin
-      $display("fifo is empty");
-    end
+  trans_rcv = new();
+  trans_exp = new();
+  fork 
+  forever
+  begin
+    rcv2sb.get(trans_rcv);
+    $display(" 0 : Scoreboard : Scoreboard received a packet from receiver ",$time);
+    gen2driv.get(trans_exp);
+    if(trans_rcv.compare(trans_exp))
+     
+       $display(" 0 : Scoreboard :Packet Matched ",$time);
+    //cov.sample(pkt_exp);
+      //error++;
+  end
+  join_none
+endtask : start
+
+endclass
     no_trans++;
    end
   endtask
