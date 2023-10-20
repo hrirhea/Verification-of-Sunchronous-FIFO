@@ -1,52 +1,66 @@
-`include "transaction.sv"
+`include "transactor.sv"
 `include "generator.sv"
 `include "driver.sv"
-`include "monitor.sv"
+`include "receiver.sv"
 `include "scoreboard.sv"
 class environment;
   
-  generator gen;
-  driver drv;
-  monitor mon;
-  scoreboard scb;
+ generator gen;
+  driver driv;
+  receiver rcv;
+  scoreboard sb;
   
-  mailbox gen2drv;
-  mailbox mon2scb;
+  mailbox gen2driv;
+ // mailbox driv2sb;
+  mailbox rcv2sb;
   
-  event drv2gen;//to show generation of signals have stopped
-  virtual fifo_intf vif_fifo;
+  event gen_ended;
   
-  function new(virtual fifo_intf vif_fifo);
-    this.vif_fifo = vif_fifo;
-    gen2drv = new();
-    mon2scb = new();
-    gen = new(gen2drv,drv2gen);
-    drv = new(vif_fifo,gen2drv);
-    mon = new(vif_fifo,mon2scb);
-    scb = new(mon2scb);
-  endfunction
+  virtual fifo_if vif_ff;
+  
+  function new(virtual fifo_if vif_ff);
+    this.vif_ff = vif_ff;
+    $display("environment created");
+    endfunction
+  task build();
+    $display("entered into the build phase");
+       gen2driv = new();
+   // driv2sb = new();
+    rcv2sb = new();
+       
+     gen = new(gen2driv);
+    driv = new(vif_ff,gen2driv);
+    rcv  = new(vif_ff,rcv2sb);
+    sb = new(gen2driv,rcv2sb);
+  endtask
   
   task pre_test();
-   drv.reset();
+    driv.reset();
   endtask
   
   task test();
-   gen.main();
-   drv.main();
-   mon.main();
-   scb.main();
+    fork
+    gen.main();
+    driv.main();
+    rcv.start();
+    sb.start();
+    join
   endtask
   
   task post_test();
-   wait(drv2gen.triggered);
-   wait(gen.repeat_count == drv.no_trans);
-   wait(gen.repeat_count == scb.no_trans);
+   //wait(gen_ended.triggered);
+    wait(gen.repeat_count == driv.no_of_transactions);
   endtask
   
   task run();
-   pre_test();
-   test();
-   post_test();
-   $finish;
+    //build();
+    pre_test();
+    test();
+    //post_test();
+    $finish();
   endtask
+  
+  
 endclass
+  
+  
