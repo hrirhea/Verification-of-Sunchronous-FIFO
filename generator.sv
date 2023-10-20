@@ -1,25 +1,30 @@
 //Generator generates signals and declares the transaction class handles
 //Randomise transactions
-//`include "transaction.sv"
+//`include "transactor.sv"
 class generator;
-  //declaring transaction class 
-  rand transaction trans;
-  mailbox gen2drv;
+  
+  rand transactor trans;
+  mailbox gen2driv;
   int repeat_count;
-  event drv2gen;
-
-  function new( mailbox gen2drv, event drv2gen);
-    this.gen2drv = gen2drv;
-    this.drv2gen = drv2gen;  
+  int count;
+  
+  function new(mailbox gen2driv);
+    this.gen2driv = gen2driv;
+    $display("allocated memory for generator ");
   endfunction
   
   task main();
-   repeat(repeat_count)begin 
-    trans = new();
-    if(!trans.randomize()) $fatal("Gen::trans randomization failed"); 
-     gen2drv.put(trans);
-   end 
-   ->drv2gen;
-  endtask
-
+    repeat(repeat_count) 
+      begin
+      trans=new();
+        if(!trans.randomize())   
+          $fatal("packet is not randomised");
+        else
+          
+          $display(" %d  :randomization is successfull",++count);
+      
+      gen2driv.put(trans);
+    end
+  endtask:main
 endclass
+  
