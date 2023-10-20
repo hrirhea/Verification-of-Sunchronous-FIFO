@@ -1,9 +1,18 @@
-program test(fifo_intf intf);
+`include "environment.sv"
+
+program test(fifo_if inf);
+
   environment env;
   
   initial begin
-    env = new(intf);
-    env.gen.repeat_count = 10;
-    env.run();
+    env = new(inf);  
+    
+    env.build();
+    env.gen.repeat_count =15;
+    env.pre_test();
+    env.test();
+    //env.post_test();
+    env.run();//$finish();
   end
+  
 endprogram
